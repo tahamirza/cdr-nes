@@ -1,3 +1,7 @@
+(use-modules (ice-9 binary-ports))
+(use-modules (ice-9 iconv))
+(use-modules (rnrs bytevectors))
+
 (define A 0)
 (define X 0)
 (define Y 0)
@@ -215,3 +219,58 @@
 
 (display A)
 (newline)
+
+(define (print-file file)
+  (let ((char (get-u8 file)))
+    (if (not (eof-object? char))
+        (begin
+          (display char)
+          (display " ")
+          (print-file file))
+        (newline))))
+
+(define (print-header header)
+  (let ((info (make-bytevector 4)))
+    (display "constant: ")
+    (bytevector-copy! header 0 info 0 4)
+    (display (bytevector->string info "ascii"))
+    (newline))
+
+  (let ((prg-len (bytevector-u8-ref header 4)))
+    (display "PRG ROM: ")
+    (display (* 16 prg-len))
+    (display " kb")
+    (newline))
+
+  (let ((chr-len (bytevector-u8-ref header 5)))
+    (display "CHR ROM: ")
+    (display (* 8 chr-len))
+    (display " kb")
+    (newline))
+
+  (let ((flags-6 (bytevector-u8-ref header 6)))
+    (display "Flags 6: ")
+    (display flags-6)
+    (newline))
+
+  (let ((flags-7 (bytevector-u8-ref header 7)))
+    (display "Flags 7: ")
+    (display flags-7)
+    (newline))
+
+  (let ((prg-ram-len (bytevector-u8-ref header 8)))
+    (display "PRG RAM: ")
+    (if (= prg-ram-len 0)
+        (display "8")
+        (display (* 8 prg-ram-len)))
+    (display " kb")
+    (newline))
+
+  (let ((flags-9 (bytevector-u8-ref header 9)))
+    (display "Flags 9: ")
+    (display flags-9)
+    (newline)))
+
+(let ((file (open-input-file "nestest.nes" #:binary #t)))
+  (print-header (get-bytevector-n file 16))
+  (close-port file))
