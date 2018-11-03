@@ -1,5 +1,6 @@
 (use-modules (ice-9 binary-ports))
 (use-modules (ice-9 iconv))
+(use-modules (ice-9 format))
 (use-modules (rnrs bytevectors))
 
 (define A 0)
@@ -8,6 +9,140 @@
 (define PC 0)
 (define S #xFD)
 (define P #x34)
+
+(define memory-opcodes
+  '((#b000 'ORA)
+    (#b001 'AND)
+    (#b010 'EOR)
+    (#b011 'ADC)
+    (#b100 'STA)
+    (#b101 'LDA)
+    (#b110 'CMP)
+    (#b111 'SBC)))
+
+(define memory-address-modes
+  '((#b000 'indirectx)
+    (#b001 'zero)
+    (#b010 'immediate)
+    (#b011 'absolute)
+    (#b100 'indirecty)
+    (#b101 'zerox)
+    (#b110 'absolutey)
+    (#b111 'absolutex)))
+
+(define two-opcodes
+  '((#b000 'ASL)
+    (#b001 'ROL)
+    (#b010 'LSR)
+    (#b011 'ROR)
+    (#b100 'STX)
+    (#b101 'LDX)
+    (#b110 'DEC)
+    (#b111 'INC)))
+
+(define two-address-modes
+  '((#b000 'immediate)
+    (#b001 'zero)
+    (#b010 'accumulator)
+    (#b011 'absolute)
+    (#b101 'zerox)
+    (#b111 'absolutex)))
+
+(define zero-opcodes
+  '((#b001 'BIT)
+    (#b010 'JMP)
+    (#b011 'JMP) 			; absolute
+    (#b100 'STY)
+    (#b101 'LDY)
+    (#b110 'CPY)
+    (#b111 'CPX)))
+
+(define zero-address-modes
+  '((#b000 'immediate)
+    (#b001 'zero)
+    (#b011 'absolute)
+    (#b101 'zerox)
+    (#b111 'absolutex)))
+
+(define (parse-opcode op)
+  ;; the first two bits determine which table to check
+  (case (bit-extract op 0 2)
+    ;; if they are 01 or 10 then the opcode has the form
+    ;; aaabbbcc
+    ;; 76543210
+    ((#b01)
+     (display (assoc (bit-extract op 5 8) memory-opcodes))
+     (display (assoc (bit-extract op 2 5) memory-address-modes)))
+    ((#b10)
+     (display (assoc (bit-extract op 5 8) two-opcodes))
+     (display (assoc (bit-extract op 2 5) two-address-modes)))
+    ((#b00)
+     (let ((address-mode (assoc (bit-extract op 2 5) zero-address-modes)))
+       (if address-mode
+	   (begin
+	     (display address-mode)
+	     (display (assoc (bit-extract op 5 8) zero-opcodes)))
+	   (display "some other opcode"))))
+    (else (display "unknown opcode"))))
+
+(define zeroops
+  '(BCC
+    BCS
+    BEQ
+    BIT
+    BMI
+    BNE
+    BPL
+    BRK
+    BVC
+    BVS
+    CLC
+    CLD
+    CLI
+    CLV
+    CPX
+    CPY
+    DEY
+    INX
+    INY
+    JMP
+    JSR
+    LDY
+    PHA
+    PHP
+    PLA
+    PLP
+    RTI
+    RTS
+    STY
+    TAY
+    TYA))
+
+(define accumulatorops
+  '(ADC
+    AND
+    CMP
+    EOR
+    LDA
+    ORA
+    SBC
+    STA))
+
+(define twoops
+  '(ASL
+    DEC
+    DEX
+    INC
+    LDX
+    LSR
+    NOP
+    ROL
+    ROR
+    STX
+    TAX
+    TSX
+    TXA
+    TXS))
 
 (define opcodes
   '((#x69 'ADC 'immediate)
@@ -271,6 +406,21 @@
     (display flags-9)
     (newline)))
 
-(let ((file (open-input-file "nestest.nes" #:binary #t)))
-  (print-header (get-bytevector-n file 16))
-  (close-port file))
+;; (let ((file (open-input-file "nestest.nes" #:binary #t)))
+;;   (print-header (get-bytevector-n file 16))
+;;   (close-port file))
+
+(define (print-opcode opcode-list)
+  (format #t "~8,'0b " (car opcode-list))
+  (display (cdr opcode-list))
+  (newline))
+
+
+(define (print-optable table)
+  (print-opcode (car table))
+  (if (not (null? (cdr table)))
+      (print-optable (cdr table))))
+
+
+;(print-optable opcodes)
+(display (parse-opcode #xEC))
